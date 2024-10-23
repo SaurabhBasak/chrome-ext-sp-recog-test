@@ -1,9 +1,10 @@
 "use client";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 
 function Recorder() {
     const [isRecording, setIsRecording] = useState(false);
     const [isListening, setIsListening] = useState(false);
+    const hasStartedListening = useRef(false);
 
     const startRecording = useCallback(async () => {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -38,12 +39,18 @@ function Recorder() {
     }, []);
 
     const startListening = useCallback(() => {
+        if (isListening || hasStartedListening.current) {
+            console.log("Already listening, skipping startListening");
+            return;
+        }
+
         const recognition = new webkitSpeechRecognition();
         recognition.continuous = true;
         recognition.lang = "en-US";
         recognition.interimResults = false;
         recognition.start();
         setIsListening(true);
+        hasStartedListening.current = true;
         console.log("Recognition started");
 
         recognition.onresult = function (event) {
@@ -57,12 +64,21 @@ function Recorder() {
             if (transcript.includes("jarvis")) {
                 recognition.stop();
                 recognition.onend = async function () {
+                    hasStartedListening.current = false;
                     await startRecording();
                     console.log("jarvis detected. Listening for command...");
                 };
             }
         };
-    }, [startRecording]);
+
+        recognition.onend = function () {
+        //     setIsListening(true);
+            setIsListening(false);
+            hasStartedListening.current = false;
+            console.log("Recognition ended abrupty");
+        };
+
+    }, [startRecording, isListening]);
 
     useEffect(() => {
         console.log(isListening, isRecording);
